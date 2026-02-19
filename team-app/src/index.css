@@ -1,0 +1,17 @@
+/* Reset default spacing */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Make full screen layout */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Remove Vite default flex behavior */
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
