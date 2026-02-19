@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { registerUser } from "../../services/api";
 import { validateForm } from "../../utils/validation";
-import Modal from "../Modal/Modal.jsx";
-import Toast from "../Toast/Toast.jsx";
+import Modal from "../Modal/Modal";
+import Toast from "../Toast/Toast";
 import "./RegisterForm.css";
 
 function RegisterForm() {
@@ -10,6 +10,8 @@ function RegisterForm() {
     name: "",
     email: "",
     mobile: "",
+    aadhar: "",
+    pan: "",
     password: ""
   });
 
@@ -19,11 +21,36 @@ function RegisterForm() {
   const [toast, setToast] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // 🔥 Live validation + formatting
   const handleChange = (e) => {
-    setFormData({
+    const { name, value } = e.target;
+    let updatedValue = value;
+
+    // Aadhaar auto-format: 1234 5678 9012
+    if (name === "aadhar") {
+      const numericValue = value.replace(/\D/g, "").substring(0, 12);
+      updatedValue = numericValue.replace(/(\d{4})(?=\d)/g, "$1 ");
+    }
+
+    // PAN auto-uppercase
+    if (name === "pan") {
+      updatedValue = value.toUpperCase();
+    }
+
+    const updatedFormData = {
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: updatedValue
+    };
+
+    setFormData(updatedFormData);
+
+    // 🔥 Live Validation
+    const validationErrors = validateForm({
+      ...updatedFormData,
+      aadhar: updatedFormData.aadhar
     });
+
+    setErrors(validationErrors);
   };
 
   const handleSubmit = async (e) => {
@@ -38,14 +65,14 @@ function RegisterForm() {
 
     try {
       await registerUser(formData);
-
       setShowModal(true);
 
-      // Reset form after success
       setFormData({
         name: "",
         email: "",
         mobile: "",
+        aadhar: "",
+        pan: "",
         password: ""
       });
 
@@ -96,9 +123,38 @@ function RegisterForm() {
             placeholder="Mobile Number"
             value={formData.mobile}
             onChange={handleChange}
+            maxLength="10"
             className={errors.mobile ? "error-input" : ""}
           />
           {errors.mobile && <span className="error">{errors.mobile}</span>}
+        </div>
+
+        {/* Aadhaar */}
+        <div className="form-group">
+          <input
+            type="text"
+            name="aadhar"
+            placeholder="Aadhaar Number (1234 5678 9012)"
+            value={formData.aadhar}
+            onChange={handleChange}
+            maxLength="14"
+            className={errors.aadhar ? "error-input" : ""}
+          />
+          {errors.aadhar && <span className="error">{errors.aadhar}</span>}
+        </div>
+
+        {/* PAN */}
+        <div className="form-group">
+          <input
+            type="text"
+            name="pan"
+            placeholder="PAN Number (ABCDE1234F)"
+            value={formData.pan}
+            onChange={handleChange}
+            maxLength="10"
+            className={errors.pan ? "error-input" : ""}
+          />
+          {errors.pan && <span className="error">{errors.pan}</span>}
         </div>
 
         {/* Password */}
@@ -125,7 +181,6 @@ function RegisterForm() {
         </button>
       </form>
 
-      {/* Success Modal */}
       {showModal && (
         <Modal
           message="User registered successfully 🎉"
@@ -133,7 +188,6 @@ function RegisterForm() {
         />
       )}
 
-      {/* Toast Notification */}
       {toast && (
         <Toast
           message={toast.message}
