@@ -1,18 +1,26 @@
 import React, { useState } from "react";
+import { User, Mail, Phone, CreditCard, Lock, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
 import { registerUser } from "../../services/api";
-import { validateForm } from "../../utils/validation";
+import {
+  personalDetailsSchema,
+  kycDetailsSchema,
+  securitySchema,
+  registrationSchema,
+  validateWithSchema,
+} from "../../utils/validation";
 import Modal from "../Modal/Modal";
 import Toast from "../Toast/Toast";
 import "./RegisterForm.css";
 
 function RegisterForm() {
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     mobile: "",
     aadhar: "",
     pan: "",
-    password: ""
+    password: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -21,7 +29,13 @@ function RegisterForm() {
   const [toast, setToast] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // 🔥 Live validation + formatting
+  // Schema mapped to steps
+  const stepSchemas = {
+    1: personalDetailsSchema,
+    2: kycDetailsSchema,
+    3: securitySchema,
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     let updatedValue = value;
@@ -29,7 +43,7 @@ function RegisterForm() {
     // Aadhaar auto-format: 1234 5678 9012
     if (name === "aadhar") {
       const numericValue = value.replace(/\D/g, "").substring(0, 12);
-      updatedValue = numericValue.replace(/(\d{4})(?=\d)/g, "$1 ");
+      updatedValue = numericValue.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
     }
 
     // PAN auto-uppercase
@@ -39,24 +53,34 @@ function RegisterForm() {
 
     const updatedFormData = {
       ...formData,
-      [name]: updatedValue
+      [name]: updatedValue,
     };
 
     setFormData(updatedFormData);
 
-    // 🔥 Live Validation
-    const validationErrors = validateForm({
-      ...updatedFormData,
-      aadhar: updatedFormData.aadhar
-    });
+    // Live validation for the current step
+    const stepErrors = validateWithSchema(updatedFormData, stepSchemas[step]);
+    setErrors(stepErrors);
+  };
 
-    setErrors(validationErrors);
+  const handleNextStep = () => {
+    const stepErrors = validateWithSchema(formData, stepSchemas[step]);
+    setErrors(stepErrors);
+
+    if (Object.keys(stepErrors).length === 0) {
+      setStep((prev) => prev + 1);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setStep((prev) => prev - 1);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const validationErrors = validateForm(formData);
+    // Final full validation
+    const validationErrors = validateWithSchema(formData, registrationSchema);
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) return;
@@ -67,15 +91,16 @@ function RegisterForm() {
       await registerUser(formData);
       setShowModal(true);
 
+      // Reset form
       setFormData({
         name: "",
         email: "",
         mobile: "",
         aadhar: "",
         pan: "",
-        password: ""
+        password: "",
       });
-
+      setStep(1);
       setErrors({});
     } catch (error) {
       setToast({ message: error.message, type: "error" });
@@ -86,104 +111,165 @@ function RegisterForm() {
 
   return (
     <div className="form-container">
-      <form className="form-card" onSubmit={handleSubmit}>
-        <h3>Register</h3>
-
-        {/* Name */}
-        <div className="form-group">
-          <input
-            type="text"
-            name="name"
-            placeholder="Full Name"
-            value={formData.name}
-            onChange={handleChange}
-            className={errors.name ? "error-input" : ""}
-          />
-          {errors.name && <span className="error">{errors.name}</span>}
+      <div className="glass-panel">
+        <div className="form-header">
+          <h2>Create Account</h2>
+          <p>Join our platform today.</p>
         </div>
 
-        {/* Email */}
-        <div className="form-group">
-          <input
-            type="email"
-            name="email"
-            placeholder="Email Address"
-            value={formData.email}
-            onChange={handleChange}
-            className={errors.email ? "error-input" : ""}
-          />
-          {errors.email && <span className="error">{errors.email}</span>}
+        {/* Progress Bar */}
+        <div className="progress-container">
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${((step - 1) / 2) * 100}%` }}
+            ></div>
+          </div>
+          <div className="step-indicators">
+            <div className={`step-dot ${step >= 1 ? "active" : ""}`}>1</div>
+            <div className={`step-dot ${step >= 2 ? "active" : ""}`}>2</div>
+            <div className={`step-dot ${step >= 3 ? "active" : ""}`}>3</div>
+          </div>
         </div>
 
-        {/* Mobile */}
-        <div className="form-group">
-          <input
-            type="text"
-            name="mobile"
-            placeholder="Mobile Number"
-            value={formData.mobile}
-            onChange={handleChange}
-            maxLength="10"
-            className={errors.mobile ? "error-input" : ""}
-          />
-          {errors.mobile && <span className="error">{errors.mobile}</span>}
-        </div>
+        <form className="form-content" onSubmit={(e) => e.preventDefault()}>
+          {/* STEP 1: Personal Details */}
+          {step === 1 && (
+            <div className="form-step slide-in">
+              <h3>Personal Details</h3>
+              <div className="input-group">
+                <User size={18} className="input-icon" />
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Full Name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className={errors.name ? "input-error" : ""}
+                />
+              </div>
+              {errors.name && <span className="error-text">{errors.name}</span>}
 
-        {/* Aadhaar */}
-        <div className="form-group">
-          <input
-            type="text"
-            name="aadhar"
-            placeholder="Aadhaar Number (1234 5678 9012)"
-            value={formData.aadhar}
-            onChange={handleChange}
-            maxLength="14"
-            className={errors.aadhar ? "error-input" : ""}
-          />
-          {errors.aadhar && <span className="error">{errors.aadhar}</span>}
-        </div>
+              <div className="input-group">
+                <Mail size={18} className="input-icon" />
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email Address"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={errors.email ? "input-error" : ""}
+                />
+              </div>
+              {errors.email && <span className="error-text">{errors.email}</span>}
 
-        {/* PAN */}
-        <div className="form-group">
-          <input
-            type="text"
-            name="pan"
-            placeholder="PAN Number (ABCDE1234F)"
-            value={formData.pan}
-            onChange={handleChange}
-            maxLength="10"
-            className={errors.pan ? "error-input" : ""}
-          />
-          {errors.pan && <span className="error">{errors.pan}</span>}
-        </div>
+              <div className="input-group">
+                <Phone size={18} className="input-icon" />
+                <input
+                  type="text"
+                  name="mobile"
+                  placeholder="Mobile Number"
+                  value={formData.mobile}
+                  onChange={handleChange}
+                  maxLength="10"
+                  className={errors.mobile ? "input-error" : ""}
+                />
+              </div>
+              {errors.mobile && <span className="error-text">{errors.mobile}</span>}
+            </div>
+          )}
 
-        {/* Password */}
-        <div className="form-group password-group">
-          <input
-            type={showPassword ? "text" : "password"}
-            name="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            className={errors.password ? "error-input" : ""}
-          />
-          <span
-            className="toggle-password"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? "Hide" : "Show"}
-          </span>
-          {errors.password && <span className="error">{errors.password}</span>}
-        </div>
+          {/* STEP 2: KYC Details */}
+          {step === 2 && (
+            <div className="form-step slide-in">
+              <h3>KYC Details</h3>
+              <div className="input-group">
+                <CreditCard size={18} className="input-icon" />
+                <input
+                  type="text"
+                  name="aadhar"
+                  placeholder="Aadhaar (1234 5678 9012)"
+                  value={formData.aadhar}
+                  onChange={handleChange}
+                  maxLength="14"
+                  className={errors.aadhar ? "input-error" : ""}
+                />
+              </div>
+              {errors.aadhar && <span className="error-text">{errors.aadhar}</span>}
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Submitting..." : "Register"}
-        </button>
-      </form>
+              <div className="input-group">
+                <CreditCard size={18} className="input-icon" />
+                <input
+                  type="text"
+                  name="pan"
+                  placeholder="PAN (ABCDE1234F)"
+                  value={formData.pan}
+                  onChange={handleChange}
+                  maxLength="10"
+                  className={errors.pan ? "input-error" : ""}
+                />
+              </div>
+              {errors.pan && <span className="error-text">{errors.pan}</span>}
+            </div>
+          )}
+
+          {/* STEP 3: Security & Review */}
+          {step === 3 && (
+            <div className="form-step slide-in">
+              <h3>Security & Review</h3>
+              <div className="input-group password-group">
+                <Lock size={18} className="input-icon" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Secure Password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={errors.password ? "input-error" : ""}
+                />
+                <span
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </span>
+              </div>
+              {errors.password && <span className="error-text">{errors.password}</span>}
+
+              <div className="review-box">
+                <p><strong>Name:</strong> {formData.name}</p>
+                <p><strong>Email:</strong> {formData.email}</p>
+                <p><strong>Phone:</strong> {formData.mobile}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="button-group">
+            {step > 1 && (
+              <button type="button" className="btn-secondary" onClick={handlePrevStep}>
+                <ArrowLeft size={16} /> Back
+              </button>
+            )}
+
+            {step < 3 ? (
+              <button type="button" className="btn-primary" onClick={handleNextStep}>
+                Next <ArrowRight size={16} />
+              </button>
+            ) : (
+              <button type="button" className="btn-success" onClick={handleSubmit} disabled={loading}>
+                {loading ? "Registering..." : (
+                  <>Complete <CheckCircle size={16} /></>
+                )}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
 
       {showModal && (
         <Modal
-          message="User registered successfully 🎉"
+          message="Account created successfully! Welcome aboard 🚀"
           onClose={() => setShowModal(false)}
         />
       )}
@@ -200,3 +286,4 @@ function RegisterForm() {
 }
 
 export default RegisterForm;
+
